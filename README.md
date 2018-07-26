@@ -3,4 +3,7 @@ data and code repository for vaccine efficacy, pathogen dose, and susceptibility
 
 
 #data file: sysdat.csv - contains all data from the literature review
+
 #R script: kate_ve_allinf_litreview.R - contains script to create Table 1 and Figure 2
+
+#dose_list.html is the list of PUBMED output articles that were searched
