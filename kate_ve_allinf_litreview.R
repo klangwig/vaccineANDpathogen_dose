@@ -58,7 +58,7 @@ r=ggplot(sysdat.inf, aes(x=log10(dose*0.001),y=frac,col=group,shape=as.factor(va
   theme(axis.title=element_text(size=20),axis.text.y=element_text(size=15),axis.text.x=element_text(angle=45,hjust=1,size=15,face="italic"),panel.grid = element_blank(), axis.line=element_line(),legend.position="top",legend.title=element_blank(),legend.text = element_text(size=20,face="italic"))
 r
 
-#literature review - using diseases with >3 dose groups and infection as outcome variable
+#literature review - using diseases with >2 dose groups and infection as outcome variable
 sysdat.inf$trmt.type = sysdat.inf$group
 unique(sysdat.inf$disease)
 
@@ -259,10 +259,7 @@ ggsave(file="/Users/klangwig/Dropbox/fish vaccines/figs/combined_litreview.pdf",
 
 ##statistical analyses
 head(sysdat2); head(sysdat.inf)
-#ordinal regression
-#Is it worth formalizing the decline by logistic regression 
-#logit Pr(inf|dose) = b0+b1*logdose +b2*vax+b3*logdose*vax and testing significance of b3? 
-#It is crude but maybe a good idea? Or maybe just showing the CI on VE so reader can decide if s/he believes it?
+#logistic regression
 sysdat.inf2 = sysdat.inf %>%
   group_by(disease2,trmt.type) %>%
   mutate(no.doses = length(unique(dose)))%>%
@@ -270,21 +267,48 @@ sysdat.inf2 = sysdat.inf %>%
   mutate(dose.o = row_number())
 
 
-
-m <-glmer(frac ~ dose.o*trmt.type + (1|disease2), weights = tot, data = sysdat.inf2, family="binomial")
+#stats for paper
+m <-glmer(frac ~ dose.o*trmt.type2 + (1|disease2), weights = tot, data = sysdat.inf2, family="binomial")
 summary(m)
 library(car)
 Anova(m)
+sysdat.inf2 = sysdat.inf2[!(is.na(sysdat.inf2$frac)),]
+newdat = expand.grid(dose.o = seq(from = min(sysdat.inf2$dose.o), to=max(sysdat.inf2$dose.o), by = .1), trmt.type2=unique(sysdat.inf2$trmt.type2))
+newdat$yhat = predict(m, re.form=NA, type = "response" ,newdat)
 
-head(sysdat2)
-
+#vaccine efficacy - not in paper, just a quick look
 sysdat3 = sysdat2 %>%
   group_by(disease2) %>%
   mutate(no.doses = length(unique(dose)))%>%
   arrange(dose) %>%
   mutate(dose.o = row_number())
-
+sysdat3 = sysdat3[!(is.na(sysdat3$ve)),]
 m2 <-lmer(ve ~ dose.o + (1|disease2), data = sysdat3)
 summary(m2)
+sysdat3$yhat = predict(m2, re.form=NA, type = "response")
 
+#plot of regression output
+#View(sysdat3)
+s=ggplot(sysdat.inf2, aes(x=dose.o,y=frac, shape= trmt.type2))+#,shape=as.factor(vax.dose)
+  geom_point(size=3, aes(col = disease2))+
+  geom_line(data = newdat, aes(y = yhat, linetype=trmt.type2))+
+  scale_color_viridis(discrete=T)+
+  ylab("Probability of Infection")+
+  xlab(expression(Ordinal~Dose))+
+  coord_cartesian(ylim=c(-0.01,1.01))+
+  theme_bw() +
+  theme(axis.title=element_text(size=20),
+        axis.text.y=element_text(size=15),
+        axis.text.x=element_text(angle=45,hjust=1,size=15,face="italic"),
+        strip.background = element_rect(fill="gray97"),
+        strip.text.x = element_text (size = 15,hjust = 0.5, vjust = 0.5,face="italic"),
+        panel.grid = element_blank(), 
+        axis.line=element_line(),
+        legend.position="right",
+        legend.title=element_blank(),
+        legend.text = element_text(size=20,face="italic"),
+        #legend.direction = "vertical",
+        legend.box="horizontal")
+s
 
+ggsave(file="/Users/klangwig/Dropbox/fish vaccines/figs/stats_output_litreview.pdf", s,width=13,height=12,units="in",limitsize=F,useDingbats=FALSE) #saves g
